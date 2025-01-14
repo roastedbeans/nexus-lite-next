@@ -2,11 +2,12 @@ import React from 'react';
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 
-const ProtectedLayout = async (children: React.ReactNode) => {
+const ProtectedLayout = async ({ children }: { children: React.ReactNode }) => {
 	const session = await auth();
 
+	console.log('session', session);
 	if (!session) {
-		return redirect('/auth/nexuslite/login');
+		return redirect('/login');
 	}
 	return <main>{children}</main>;
 };

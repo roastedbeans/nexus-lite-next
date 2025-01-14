@@ -1,9 +1,9 @@
 'use client';
-import { Input, Button, Card, Link } from '@nextui-org/react';
+import { Input, Button, Card } from '@nextui-org/react';
 import { useRouter } from 'next/navigation';
 import { useForm, SubmitHandler } from 'react-hook-form';
 
-type SignInFormInputs = {
+type SignUpFormInputs = {
 	username: string;
 	email: string;
 	password: string;
@@ -16,9 +16,9 @@ export default function Signup() {
 		register,
 		handleSubmit,
 		formState: { errors, isSubmitting },
-	} = useForm<SignInFormInputs>();
+	} = useForm<SignUpFormInputs>();
 
-	const onSubmit: SubmitHandler<SignInFormInputs> = async (data) => {
+	const onSubmit: SubmitHandler<SignUpFormInputs> = async (data) => {
 		if (data.password !== data.confirmPassword) {
 			alert('Passwords do not match');
 			return;
@@ -60,8 +60,8 @@ export default function Signup() {
 							{...register('username', {
 								required: 'Username is required',
 								minLength: {
-									value: 8,
-									message: 'Username must be at least 8 characters long',
+									value: 6,
+									message: 'Username must be at least 6 characters long',
 								},
 								maxLength: {
 									value: 16,

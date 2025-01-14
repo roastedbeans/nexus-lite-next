@@ -1,105 +1,104 @@
 import NextAuth from 'next-auth';
-import type { NextAuthConfig, Session } from 'next-auth';
-import type { OAuthConfig } from 'next-auth/providers';
-import type { CustomProfile, CustomTokens } from '@/app/_types/nexuslite-provider';
+import type { NextAuthConfig } from 'next-auth';
+import Credentials from 'next-auth/providers/credentials';
+import { PrismaAdapter } from '@auth/prisma-adapter';
+import { prisma } from '@/app/_lib/prisma';
+import bcrypt from 'bcrypt';
+import { signInSchema } from './app/_lib/zod';
+import { ZodError } from 'zod';
 
-const CustomProvider = {
-	id: 'nexuslite',
-	name: 'Nexus Lite',
-	type: 'oauth',
+export const config = {
+	adapter: PrismaAdapter(prisma),
+	providers: [
+		Credentials({
+			credentials: {
+				email: { label: 'Email', type: 'text' },
+				password: { label: 'Password', type: 'password' },
+			},
 
-	clientId: process.env.NEXUSLITE_CLIENT_ID,
-	clientSecret: process.env.NEXUSLITE_CLIENT_SECRET,
-	token: {
-		url: `${process.env.NEXUSLITE_URL}/token`,
+			authorize: async (credentials): Promise<any> => {
+				// console.log('credentials,', credentials);
+				// if (!credentials.email || !credentials.password) {
+				// 	return null;
+				// }
+
+				// try {
+				// 	const user = await prisma.user.findUnique({
+				// 		where: {
+				// 			email: credentials.email as string,
+				// 		},
+				// 	});
+
+				// 	if (!user?.password) {
+				// 		return null;
+				// 	}
+
+				// 	const isPasswordValid = await bcrypt.compare(credentials.password as string, user.password);
+
+				// 	if (!isPasswordValid) {
+				// 		return null;
+				// 	}
+
+				return {
+					id: 'cm5vy3uvx0000v0c8k9xjhz0v',
+					email: 'client+1@test.com',
+					name: '',
+				};
+				// } catch (error) {
+				// 	if (error instanceof ZodError) {
+				// 		// Validation error
+				// 		return null;
+				// 	}
+				// }
+			},
+		}),
+	],
+	secret: process.env.AUTH_SECRET,
+	pages: {
+		signIn: '/login',
 	},
-	userinfo: {
-		url: `${process.env.NEXUSLITE_URL}/userinfo`,
-		async request({ tokens }: { tokens: CustomTokens }) {
-			const response = await fetch(`${process.env.NEXUSLITE_URL}/userinfo`, {
-				headers: {
-					Authorization: `Bearer ${tokens.access_token}`,
+	session: {
+		strategy: 'jwt',
+	},
+	debug: true,
+	callbacks: {
+		async jwt({ token }) {
+			const db_user = await prisma.user.findUnique({
+				where: {
+					email: token.email as string,
 				},
 			});
-			if (!response.ok) {
-				throw new Error('Failed to fetch user');
-			}
-			return await response.json();
-		},
-	},
-	profile(profile: CustomProfile) {
-		return {
-			id: profile.id,
-			name: profile.name,
-			email: profile.email,
-		};
-	},
-	// Authorization endpoint configuration
-	authorization: {
-		url: `${process.env.NEXUSLITE_URL}/api/auth/nexuslite/authorize`,
-		params: { response_type: 'code' },
-	},
 
-	issuer: process.env.NEXUSLITE_URL,
-} satisfies OAuthConfig<CustomProfile>;
-export const authConfig = {
-	providers: [CustomProvider],
-	pages: {
-		signIn: '/auth/nexuslite/login',
-	},
-	callbacks: {
-		async jwt({ token, user, account }) {
-			if (user && account) {
-				token.accessToken = account.access_token;
-				token.refreshToken = account.refresh_token;
-				token.userId = user.id;
-			}
-
-			// Check if token needs refresh
-			const now = Math.floor(Date.now() / 1000);
-			if (token.expiresAt && now > token.expiresAt) {
-				try {
-					const response = await fetch(`${process.env.NEXUSLITE_URL}/token`, {
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/x-www-form-urlencoded',
-						},
-						body: new URLSearchParams({
-							grant_type: 'refresh_token',
-							refresh_token: token.refreshToken as string,
-							client_id: process.env.NEXUSLITE_CLIENT_ID!,
-							client_secret: process.env.NEXUSLITE_CLIENT_SECRET!,
-						}),
-					});
-
-					const tokens: CustomTokens = await response.json();
-
-					if (!response.ok) throw tokens;
-
-					return {
-						...token,
-						accessToken: tokens.access_token,
-						refreshToken: tokens.refresh_token,
-						expiresAt: tokens.expires_at,
-					};
-				} catch (error) {
-					console.error('Error refreshing token:', error);
-					return { ...token, error: 'RefreshAccessTokenError' };
-				}
+			if (db_user) {
+				token.id = db_user.id;
+				token.email = db_user.email;
+				token.name = db_user.name;
 			}
 
 			return token;
 		},
-		async session({ session, token }): Promise<Session> {
-			session.accessToken = token.accessToken;
-			session.error = token.error;
-			session.userId = token.userId as string;
-
+		async session({ session, token }) {
+			if (token) {
+				session.user.id = token.id as string;
+				session.user.email = token.email as string;
+				session.user.name = token.name as string;
+			}
 			return session;
+		},
+		async authorized({ auth, request }) {
+			console.log('============================================');
+			const isLoggedIn = auth?.user;
+			const isOnDashboard = request.nextUrl.pathname.startsWith('/account');
+			console.log('auth:', auth, 'isLoggedIn', isLoggedIn, 'isOnDashboard', isOnDashboard);
+			if (isOnDashboard) {
+				if (isLoggedIn) return true;
+				return false;
+			} else if (isLoggedIn) {
+				return Response.redirect(new URL('/account', request.nextUrl));
+			}
+			return true;
 		},
 	},
 } satisfies NextAuthConfig;
 
-export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);
-
-export const authMiddleware = auth;
+export const { handlers, auth, signIn, signOut } = NextAuth(config);

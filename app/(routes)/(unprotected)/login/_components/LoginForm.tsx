@@ -3,9 +3,10 @@ import { Input, Button, Card, Link } from '@nextui-org/react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm, SubmitHandler } from 'react-hook-form';
+import { signinAction } from '../_actions/signin';
 
 type SignInFormInputs = {
-	username: string;
+	email: string;
 	password: string;
 };
 
@@ -23,6 +24,7 @@ export default function SignIn() {
 	const onSubmit: SubmitHandler<SignInFormInputs> = async (data) => {
 		console.log('Form Data:', data);
 
+		signinAction(data);
 		// try {
 		// 	const response = await fetch('/api/auth/login', {
 		// 		method: 'POST',
@@ -40,39 +42,6 @@ export default function SignIn() {
 		// } catch (error) {
 		// 	alert('An error occurred during sign-in.');
 		// }
-		try {
-			// First, get the OAuth tokens using username/password
-			const tokenResponse = await fetch(`${process.env.NEXT_PUBLIC_NEXUSLITE_URL}/api/token`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					username: data.username,
-					password: data.password,
-				}),
-			});
-
-			if (!tokenResponse.ok) {
-				throw new Error('Invalid credentials');
-			}
-
-			const tokens = await tokenResponse.json();
-
-			// Now sign in with NextAuth using the tokens
-			const result = await signIn('nexuslite', {
-				access_token: tokens.access_token,
-				refresh_token: tokens.refresh_token,
-				redirect: false,
-			});
-
-			if (result?.error) {
-				alert(result.error || 'Sign-in failed!');
-			} else {
-				alert('Sign-in successful!');
-				router.push('/account');
-			}
-		} catch (error) {
-			alert('An error occurred during sign-in.');
-		}
 	};
 
 	return (
@@ -85,23 +54,23 @@ export default function SignIn() {
 					{/* Username Input */}
 					<div>
 						<Input
-							{...register('username', {
-								required: 'Username is required',
+							{...register('email', {
+								required: 'Email is required',
 								minLength: {
 									value: 8,
-									message: 'Username must be at least 8 characters long',
+									message: 'email must be at least 8 characters long',
 								},
 								maxLength: {
-									value: 16,
-									message: 'Username must be at most 16 characters long',
+									value: 64,
+									message: 'email must be at most 64 characters long',
 								},
 							})}
-							type='username'
-							label='Username'
+							type='email'
+							label='Email'
 							fullWidth
-							placeholder='Enter your username'
-							isInvalid={errors.username ? true : false}
-							errorMessage={errors.username ? errors.username.message : ''}
+							placeholder='Enter your email'
+							isInvalid={errors.email ? true : false}
+							errorMessage={errors.email ? errors.email.message : ''}
 						/>
 					</div>
 
@@ -145,8 +114,6 @@ export default function SignIn() {
 				<p className='mt-4'>
 					Don't have an account? <Link href='/sign-up'>Register</Link>
 				</p>
-
-				<button onClick={() => signIn('nexuslite', { callbackUrl: '/account' })}>Sign in with Nexus Lite</button>
 			</Card>
 		</div>
 	);
