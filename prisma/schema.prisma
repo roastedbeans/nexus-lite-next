@@ -1,0 +1,51 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider  = "postgresql"
+    url       = env("DATABASE_URL")
+    directUrl = env("DIRECT_URL")
+}
+
+// OAuthClient model for storing OAuth clients
+model OAuthClient {
+    id           String   @id @default(cuid()) // Unique client ID
+    clientId     String   @unique // Public client ID
+    clientSecret String // Secret key for the client
+    redirectUri  String // Redirect URI for the OAuth flow
+    name         String // Name of the OAuth client (for identification)
+    createdAt    DateTime @default(now()) // Timestamp when the client was created
+    updatedAt    DateTime @updatedAt // Timestamp when the client was last updated
+
+    // Relation to OAuthTokens
+    tokens OAuthToken[] // One client can have many tokens
+}
+
+// OAuthToken model for storing OAuth access and refresh tokens
+model OAuthToken {
+    id           String   @id @default(cuid()) // Unique token ID
+    clientId     String // OAuth client ID requesting the token
+    accessToken  String // The access token issued to the client
+    refreshToken String? // The refresh token (optional)
+    userId       String // The user who authorized the token
+    expiresAt    DateTime // The expiration date of the token
+    createdAt    DateTime @default(now()) // Timestamp when the token was created
+    updatedAt    DateTime @updatedAt // Timestamp when the token was last updated
+
+    // Relations
+    client OAuthClient @relation(fields: [clientId], references: [clientId]) // Relation to OAuthClient
+    user   User        @relation(fields: [userId], references: [id]) // Relation to User
+}
+
+// User model to store authenticated users
+model User {
+    id        String   @id @default(cuid()) // Unique user ID
+    email     String   @unique // User's email address (used for login)
+    name      String? // Optional: Name of the user
+    password  String? // Optional: Password (if using a non-OAuth provider)
+    createdAt DateTime @default(now()) // Timestamp when user was created
+
+    // Relations to OAuthTokens
+    oauthTokens OAuthToken[] // One user can have many OAuth tokens
+}
