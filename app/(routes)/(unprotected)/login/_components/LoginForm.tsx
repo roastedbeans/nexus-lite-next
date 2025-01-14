@@ -1,9 +1,8 @@
 'use client';
 import { Input, Button, Card, Link } from '@nextui-org/react';
-import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm, SubmitHandler } from 'react-hook-form';
-import { signinAction } from '../_actions/signin';
+import { signinAction } from '../../../../_actions/signin';
 
 type SignInFormInputs = {
 	email: string;
@@ -22,26 +21,8 @@ export default function SignIn() {
 	} = useForm<SignInFormInputs>();
 
 	const onSubmit: SubmitHandler<SignInFormInputs> = async (data) => {
-		console.log('Form Data:', data);
-
 		signinAction(data);
-		// try {
-		// 	const response = await fetch('/api/auth/login', {
-		// 		method: 'POST',
-		// 		headers: { 'Content-Type': 'application/json' },
-		// 		body: JSON.stringify(data),
-		// 	});
-		// 	const result = await response.json();
-
-		// 	if (response.ok) {
-		// 		alert('Sign-in successful!');
-		// 		router.push('/account');
-		// 	} else {
-		// 		alert(result.error || 'Sign-in failed!');
-		// 	}
-		// } catch (error) {
-		// 	alert('An error occurred during sign-in.');
-		// }
+		router.refresh();
 	};
 
 	return (

@@ -4,8 +4,6 @@ import Credentials from 'next-auth/providers/credentials';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import { prisma } from '@/app/_lib/prisma';
 import bcrypt from 'bcrypt';
-import { signInSchema } from './app/_lib/zod';
-import { ZodError } from 'zod';
 
 export const config = {
 	adapter: PrismaAdapter(prisma),
@@ -15,64 +13,47 @@ export const config = {
 				email: { label: 'Email', type: 'text' },
 				password: { label: 'Password', type: 'password' },
 			},
+			async authorize(credentials) {
+				if (!credentials?.email || !credentials?.password) {
+					return null;
+				}
 
-			authorize: async (credentials): Promise<any> => {
-				// console.log('credentials,', credentials);
-				// if (!credentials.email || !credentials.password) {
-				// 	return null;
-				// }
+				const user = await prisma.user.findUnique({
+					where: {
+						email: credentials.email as string,
+					},
+				});
 
-				// try {
-				// 	const user = await prisma.user.findUnique({
-				// 		where: {
-				// 			email: credentials.email as string,
-				// 		},
-				// 	});
+				if (!user?.password) {
+					return null;
+				}
 
-				// 	if (!user?.password) {
-				// 		return null;
-				// 	}
+				const isPasswordValid = await bcrypt.compare(credentials.password as string, user.password);
 
-				// 	const isPasswordValid = await bcrypt.compare(credentials.password as string, user.password);
-
-				// 	if (!isPasswordValid) {
-				// 		return null;
-				// 	}
+				if (!isPasswordValid) {
+					return null;
+				}
 
 				return {
-					id: 'cm5vy3uvx0000v0c8k9xjhz0v',
-					email: 'client+1@test.com',
-					name: '',
+					id: user.id,
+					email: user.email,
+					name: user.name,
 				};
-				// } catch (error) {
-				// 	if (error instanceof ZodError) {
-				// 		// Validation error
-				// 		return null;
-				// 	}
-				// }
 			},
 		}),
 	],
 	secret: process.env.AUTH_SECRET,
-	pages: {
-		signIn: '/login',
-	},
+
 	session: {
 		strategy: 'jwt',
 	},
-	debug: true,
+	debug: process.env.NODE_ENV !== 'production',
 	callbacks: {
-		async jwt({ token }) {
-			const db_user = await prisma.user.findUnique({
-				where: {
-					email: token.email as string,
-				},
-			});
-
-			if (db_user) {
-				token.id = db_user.id;
-				token.email = db_user.email;
-				token.name = db_user.name;
+		async jwt({ token, user }) {
+			if (user) {
+				token.id = user.id;
+				token.email = user.email;
+				token.name = user.name;
 			}
 
 			return token;
@@ -84,19 +65,6 @@ export const config = {
 				session.user.name = token.name as string;
 			}
 			return session;
-		},
-		async authorized({ auth, request }) {
-			console.log('============================================');
-			const isLoggedIn = auth?.user;
-			const isOnDashboard = request.nextUrl.pathname.startsWith('/account');
-			console.log('auth:', auth, 'isLoggedIn', isLoggedIn, 'isOnDashboard', isOnDashboard);
-			if (isOnDashboard) {
-				if (isLoggedIn) return true;
-				return false;
-			} else if (isLoggedIn) {
-				return Response.redirect(new URL('/account', request.nextUrl));
-			}
-			return true;
 		},
 	},
 } satisfies NextAuthConfig;
